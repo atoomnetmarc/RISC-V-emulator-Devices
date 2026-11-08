@@ -1,0 +1,17 @@
+{
+    "name": "RISC-V emulator devices",
+    "version": "0.1.0",
+    "description": "Reusable RISC-V platform device models for the RISC-V-emulator family.",
+    "keywords": "RISC-V, rv32i, clint, uart, 16550",
+    "license": "Apache-2.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/atoomnetmarc/RISC-V-emulator-Devices.git"
+    },
+    "authors": [
+        {
+            "name": "Marc Ketel",
+            "maintainer": true
+        }
+    ]
+  }
