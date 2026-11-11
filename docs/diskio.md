@@ -56,7 +56,7 @@ The UART stays at `0x10000000` with size `0x100`, and the virtio-mmio range star
 
 ## virtio-mmio legacy v1
 
-The device implements the version 1 register layout. The kernel writes the feature selector registers; a legacy device ignores them and returns the same 32-bit feature word.
+The device implements the version 1 register layout. The feature selector registers choose the low or high 32-bit feature word. The device advertises only 32 feature bits, so the high word reads as zero. Returning the same word for both halves would make 64-bit-only features such as `VIRTIO_F_NOTIFICATION_DATA` appear negotiated.
 
 | Offset  | Register           | Access | Notes                               |
 | :------ | :----------------- | :----- | :---------------------------------- |
@@ -65,16 +65,16 @@ The device implements the version 1 register layout. The kernel writes the featu
 | `0x008` | `DeviceID`         | R      | `2` (block).                        |
 | `0x00C` | `VendorID`         | R      | Board value.                        |
 | `0x010` | `HostFeatures`     | R      | 32-bit feature word.                |
-| `0x014` | `HostFeaturesSel`  | W      | Ignored.                            |
+| `0x014` | `HostFeaturesSel`  | W      | Selects the feature word; word 0 is non-zero. |
 | `0x020` | `GuestFeatures`    | W      | 32-bit driver feature word.         |
-| `0x024` | `GuestFeaturesSel` | W      | Ignored.                            |
+| `0x024` | `GuestFeaturesSel` | W      | Selects the feature word; only word 0 is stored. |
 | `0x028` | `GuestPageSize`    | W      | `4096`.                             |
 | `0x030` | `QueueSel`         | W      | Queue index.                        |
 | `0x034` | `QueueNumMax`      | R      | Maximum queue size.                 |
 | `0x038` | `QueueNum`         | W      | Queue size.                         |
 | `0x03C` | `QueueAlign`       | W      | Used-ring alignment.                |
 | `0x040` | `QueuePFN`         | RW     | Descriptor table page frame number. |
-| `0x050` | `QueueNotify`      | W      | Queue index.                        |
+| `0x050` | `QueueNotify`      | W      | Low 16 bits are the queue index; the high 16 bits are ignored. |
 | `0x060` | `InterruptStatus`  | R      | Bit 0 is the used-ring interrupt.   |
 | `0x064` | `InterruptACK`     | W      | Clears the written bits.            |
 | `0x070` | `Status`           | RW     | Device status.                      |

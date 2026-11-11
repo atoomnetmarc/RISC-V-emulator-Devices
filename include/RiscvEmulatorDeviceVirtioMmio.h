@@ -80,7 +80,9 @@ typedef struct {
     uint32_t device_id;
     uint32_t vendor_id;
     uint32_t host_features;
+    uint32_t host_features_sel;
     uint32_t guest_features;
+    uint32_t guest_features_sel;
     uint32_t guest_page_size;
     uint32_t queue_sel;
     uint32_t queue_count;
@@ -277,7 +279,10 @@ static inline bool virtio_mmio_read(virtio_mmio_t *dev, uint32_t address, void *
             value = dev->vendor_id;
             break;
         case VIRTIO_MMIO_HOST_FEATURES_OFFSET:
-            value = dev->host_features;
+            // Legacy virtio-mmio exposes 32 feature bits. The high word is
+            // zero so the guest cannot negotiate 64-bit-only features such as
+            // VIRTIO_F_NOTIFICATION_DATA.
+            value = dev->host_features_sel == 0 ? dev->host_features : 0;
             break;
         case VIRTIO_MMIO_QUEUE_NUM_MAX_OFFSET:
             value = dev->queue_sel < dev->queue_count ? VIRTIO_MMIO_QUEUE_NUM_MAX : 0;
@@ -328,11 +333,15 @@ static inline bool virtio_mmio_write(virtio_mmio_t *dev, uint32_t address, const
 
     switch (offset) {
         case VIRTIO_MMIO_HOST_FEATURES_SEL_OFFSET:
+            dev->host_features_sel = value;
             break;
         case VIRTIO_MMIO_GUEST_FEATURES_OFFSET:
-            dev->guest_features = value;
+            if (dev->guest_features_sel == 0) {
+                dev->guest_features = value;
+            }
             break;
         case VIRTIO_MMIO_GUEST_FEATURES_SEL_OFFSET:
+            dev->guest_features_sel = value;
             break;
         case VIRTIO_MMIO_GUEST_PAGE_SIZE_OFFSET:
             dev->guest_page_size = value;
@@ -356,8 +365,11 @@ static inline bool virtio_mmio_write(virtio_mmio_t *dev, uint32_t address, const
             }
             break;
         case VIRTIO_MMIO_QUEUE_NOTIFY_OFFSET:
-            if (value < dev->queue_count) {
-                *notify_queue = value;
+            // The low 16 bits hold the queue index. The high 16 bits are the
+            // optional notification data (VIRTIO_F_NOTIFICATION_DATA), which
+            // this transport does not advertise but tolerates.
+            if ((value & 0xFFFFu) < dev->queue_count) {
+                *notify_queue = value & 0xFFFFu;
             }
             break;
         case VIRTIO_MMIO_INTERRUPT_ACK_OFFSET:
