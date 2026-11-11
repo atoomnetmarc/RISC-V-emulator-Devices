@@ -1,6 +1,6 @@
 # Status
 
-The CLINT, 16550 UART, SYSCON, PLIC and virtio-blk models are implemented. The host unit tests exercise each model.
+The CLINT, 16550 UART, SYSCON, PLIC, virtio-blk and virtio-console models are implemented. The host unit tests exercise each model.
 
 # Description
 
@@ -17,18 +17,20 @@ The library is header-only. All device functions are `static inline`; there are 
 | SYSCON / test finisher | Poweroff and reboot                   | `sifive,test1`, `sifive,test0`, `syscon` |
 | PLIC                   | External interrupt controller         | `sifive,plic-1.0.0`                      |
 | virtio-blk             | Block device over virtio-mmio         | `virtio,mmio`                            |
+| virtio-console         | Console over virtio-mmio              | `virtio,mmio`                            |
 
 # Memory map
 
 The default memory map follows the QEMU `virt` machine:
 
-| Device        |         Base |       Size |
-| :------------ | -----------: | ---------: |
-| CLINT         | `0x02000000` |  `0x10000` |
-| UART0         | `0x10000000` |    `0x100` |
-| Test finisher | `0x00100000` |   `0x1000` |
-| PLIC          | `0x0C000000` | `0x400000` |
-| virtio-mmio   | `0x10001000` |   `0x1000` |
+| Device         |         Base |       Size |
+| :------------- | -----------: | ---------: |
+| CLINT          | `0x02000000` |  `0x10000` |
+| UART0          | `0x10000000` |    `0x100` |
+| Test finisher  | `0x00100000` |   `0x1000` |
+| PLIC           | `0x0C000000` | `0x400000` |
+| virtio-blk     | `0x10001000` |   `0x1000` |
+| virtio-console | `0x10002000` |   `0x1000` |
 
 The device models are address-independent; the board chooses the base addresses.
 
@@ -57,19 +59,21 @@ The SYSCON, UART and virtio-blk host hooks are macros. Define them before includ
 #define RVE_DEV_VIRTIO_BLK_READ(sector, buffer, count)  board_disk_read(sector, buffer, count)
 #define RVE_DEV_VIRTIO_BLK_WRITE(sector, buffer, count) board_disk_write(sector, buffer, count)
 #define RVE_DEV_VIRTIO_BLK_FLUSH()                      board_disk_flush()
+#define RVE_DEV_VIRTIO_CONSOLE_TX(buffer, length)       board_console_write(buffer, length)
 
 #include <RiscvEmulatorDevices.h>
 ```
 
 Each device can be disabled by defining its switch to `0` before including the umbrella header:
 
-| Switch               | Default | Device                 |
-| :------------------- | :------ | :--------------------- |
-| `RVE_DEV_CLINT`      | `1`     | CLINT                  |
-| `RVE_DEV_UART16550`  | `1`     | 16550 UART             |
-| `RVE_DEV_SYSCON`     | `1`     | SYSCON / test finisher |
-| `RVE_DEV_PLIC`       | `1`     | PLIC                   |
-| `RVE_DEV_VIRTIO_BLK` | `1`     | virtio-blk             |
+| Switch                   | Default | Device                 |
+| :----------------------- | :------ | :--------------------- |
+| `RVE_DEV_CLINT`          | `1`     | CLINT                  |
+| `RVE_DEV_UART16550`      | `1`     | 16550 UART             |
+| `RVE_DEV_SYSCON`         | `1`     | SYSCON / test finisher |
+| `RVE_DEV_PLIC`           | `1`     | PLIC                   |
+| `RVE_DEV_VIRTIO_BLK`     | `1`     | virtio-blk             |
+| `RVE_DEV_VIRTIO_CONSOLE` | `1`     | virtio-console         |
 
 The CLINT is a plain instance. Initialize it with `clint_init` and let the board supply the host clock and bridge the pending bits into `mip`:
 
@@ -113,9 +117,26 @@ static inline void RiscvDevicesUartReceive(uint8_t byte) {
 
 See [docs/uart16550.md](docs/uart16550.md) for the register map and the interrupt priority.
 
-The PLIC and virtio-blk models form a block device path. The PLIC has one context and 32 sources; source 1 carries the virtio-mmio interrupt. The board sets the pending bit from `virtio_blk_irq_pending` and bridges `plic_irq_pending` into `mip.MEIP` (bit 11). The virtio-blk model uses the host hooks for all disk I/O and reads the descriptor table and data buffers from guest RAM.
+The PLIC and virtio-blk models form a block device path. The PLIC has one context and 32 sources; source 1 carries the virtio-blk interrupt and source 2 carries the virtio-console interrupt. The board sets the pending bits from `virtio_blk_irq_pending` and `virtio_console_irq_pending` and bridges `plic_irq_pending` into `mip.MEIP` (bit 11). The virtio-blk model uses the host hooks for all disk I/O and reads the descriptor table and data buffers from guest RAM.
 
 See [docs/diskio.md](docs/diskio.md) for the register map, the queue layout and the request format.
+
+The virtio-console is a plain instance. Initialize it with `virtio_console_init`, push host input into the RX FIFO and bridge the interrupt line:
+
+```c
+static virtio_console_t console;
+
+// Call from board_init().
+virtio_console_init(&console, 0x10002000, 0x1000, guest_memory, 0x80000000, guest_size);
+
+static inline void RiscvDevicesConsoleReceive(uint8_t byte) {
+    virtio_console_rx_push(&console, byte);
+}
+```
+
+The board defines `RVE_DEV_VIRTIO_CONSOLE_TX(buffer, length)` to write console output to the host. The hook receives a pointer into guest RAM and must not modify the buffer.
+
+See [docs/virtio_console.md](docs/virtio_console.md) for the shared transport, both queues and the RX FIFO.
 
 # Documentation
 

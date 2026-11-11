@@ -31,6 +31,8 @@ This document records the design for a block device in the RISC-V emulator famil
 
 The guest sees a virtio-mmio transport at a fixed MMIO range and a virtio-blk device behind it. The transport uses the legacy version 1 register layout. A SiFive PLIC delivers the virtio interrupt to the hart as `mip.MEIP`. The board owns the host file and the guest memory.
 
+The transport is shared with the virtio-console model; see [virtio_console.md](virtio_console.md).
+
 ```
 Linux guest
   virtio-blk driver

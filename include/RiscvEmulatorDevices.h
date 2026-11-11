@@ -13,5 +13,6 @@ SPDX-License-Identifier: Apache-2.0
 #include "RiscvEmulatorDeviceSyscon.h"
 #include "RiscvEmulatorDeviceUart16550.h"
 #include "RiscvEmulatorDeviceVirtioBlk.h"
+#include "RiscvEmulatorDeviceVirtioConsole.h"
 
 #endif
