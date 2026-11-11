@@ -1,6 +1,6 @@
 # Status
 
-The CLINT, 16550 UART and SYSCON models are implemented. The host unit tests exercise each model.
+The CLINT, 16550 UART, SYSCON, PLIC and virtio-blk models are implemented. The host unit tests exercise each model.
 
 # Description
 
@@ -15,16 +15,20 @@ The library is header-only. All device functions are `static inline`; there are 
 | CLINT                  | Per-hart timer and software interrupt | `sifive,clint0`, `riscv,clint0`          |
 | 16550 UART             | Serial console                        | `ns16550a`                               |
 | SYSCON / test finisher | Poweroff and reboot                   | `sifive,test1`, `sifive,test0`, `syscon` |
+| PLIC                   | External interrupt controller         | `sifive,plic-1.0.0`                      |
+| virtio-blk             | Block device over virtio-mmio         | `virtio,mmio`                            |
 
 # Memory map
 
 The default memory map follows the QEMU `virt` machine:
 
-| Device        |         Base |      Size |
-| :------------ | -----------: | --------: |
-| CLINT         | `0x02000000` | `0x10000` |
-| UART0         | `0x10000000` |   `0x100` |
-| Test finisher | `0x00100000` |  `0x1000` |
+| Device        |         Base |       Size |
+| :------------ | -----------: | ---------: |
+| CLINT         | `0x02000000` |  `0x10000` |
+| UART0         | `0x10000000` |    `0x100` |
+| Test finisher | `0x00100000` |   `0x1000` |
+| PLIC          | `0x0C000000` | `0x400000` |
+| virtio-mmio   | `0x10001000` |   `0x1000` |
 
 The device models are address-independent; the board chooses the base addresses.
 
@@ -44,23 +48,28 @@ Include the umbrella header and wire the devices in your `RiscvEmulatorLoad` and
 #include <RiscvEmulatorDevices.h>
 ```
 
-The SYSCON and UART host hooks are macros. Define them before including the umbrella header:
+The SYSCON, UART and virtio-blk host hooks are macros. Define them before including the umbrella header:
 
 ```c
 #define RVE_DEV_SYSCON_POWEROFF(pass) board_poweroff(pass)
 #define RVE_DEV_SYSCON_REBOOT()       board_reboot()
 #define RVE_DEV_UART16550_TX(byte)    board_uart_tx(byte)
+#define RVE_DEV_VIRTIO_BLK_READ(sector, buffer, count)  board_disk_read(sector, buffer, count)
+#define RVE_DEV_VIRTIO_BLK_WRITE(sector, buffer, count) board_disk_write(sector, buffer, count)
+#define RVE_DEV_VIRTIO_BLK_FLUSH()                      board_disk_flush()
 
 #include <RiscvEmulatorDevices.h>
 ```
 
 Each device can be disabled by defining its switch to `0` before including the umbrella header:
 
-| Switch              | Default | Device                 |
-| :------------------ | :------ | :--------------------- |
-| `RVE_DEV_CLINT`     | `1`     | CLINT                  |
-| `RVE_DEV_UART16550` | `1`     | 16550 UART             |
-| `RVE_DEV_SYSCON`    | `1`     | SYSCON / test finisher |
+| Switch               | Default | Device                 |
+| :------------------- | :------ | :--------------------- |
+| `RVE_DEV_CLINT`      | `1`     | CLINT                  |
+| `RVE_DEV_UART16550`  | `1`     | 16550 UART             |
+| `RVE_DEV_SYSCON`     | `1`     | SYSCON / test finisher |
+| `RVE_DEV_PLIC`       | `1`     | PLIC                   |
+| `RVE_DEV_VIRTIO_BLK` | `1`     | virtio-blk             |
 
 The CLINT is a plain instance. Initialize it with `clint_init` and let the board supply the host clock and bridge the pending bits into `mip`:
 
@@ -103,6 +112,10 @@ static inline void RiscvDevicesUartReceive(uint8_t byte) {
 ```
 
 See [docs/uart16550.md](docs/uart16550.md) for the register map and the interrupt priority.
+
+The PLIC and virtio-blk models form a block device path. The PLIC has one context and 32 sources; source 1 carries the virtio-mmio interrupt. The board sets the pending bit from `virtio_blk_irq_pending` and bridges `plic_irq_pending` into `mip.MEIP` (bit 11). The virtio-blk model uses the host hooks for all disk I/O and reads the descriptor table and data buffers from guest RAM.
+
+See [docs/diskio.md](docs/diskio.md) for the register map, the queue layout and the request format.
 
 # Documentation
 
