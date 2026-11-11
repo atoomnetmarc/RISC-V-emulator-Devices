@@ -15,3 +15,4 @@ The general coding rules are shared with the ISA core and live in [RISC-V-emulat
 - [uart16550.md](uart16550.md) - 16550 register map, FIFO, interrupt priority and host hooks.
 - [diskio.md](diskio.md) - Disk I/O design: virtio-mmio legacy v1, virtio-blk, SiFive PLIC, host hooks and ext4.
 - [virtio_console.md](virtio_console.md) - Virtio console design: shared virtio-mmio transport, both queues, RX FIFO and `hvc0`.
+- [virtio_net.md](virtio_net.md) - Virtio network design: shared virtio-mmio transport, receiveq and transmitq, TAP host hook and a static guest address.

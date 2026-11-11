@@ -1,6 +1,6 @@
 # Status
 
-The CLINT, 16550 UART, SYSCON, PLIC, virtio-blk and virtio-console models are implemented. The host unit tests exercise each model.
+The CLINT, 16550 UART, SYSCON, PLIC, virtio-blk, virtio-console and virtio-net models are implemented. The host unit tests exercise each model.
 
 # Description
 
@@ -18,6 +18,7 @@ The library is header-only. All device functions are `static inline`; there are 
 | PLIC                   | External interrupt controller         | `sifive,plic-1.0.0`                      |
 | virtio-blk             | Block device over virtio-mmio         | `virtio,mmio`                            |
 | virtio-console         | Console over virtio-mmio              | `virtio,mmio`                            |
+| virtio-net             | Network device over virtio-mmio       | `virtio,mmio`                            |
 
 # Memory map
 
@@ -31,6 +32,7 @@ The default memory map follows the QEMU `virt` machine:
 | PLIC           | `0x0C000000` | `0x400000` |
 | virtio-blk     | `0x10001000` |   `0x1000` |
 | virtio-console | `0x10002000` |   `0x1000` |
+| virtio-net     | `0x10003000` |   `0x1000` |
 
 The device models are address-independent; the board chooses the base addresses.
 
@@ -60,6 +62,7 @@ The SYSCON, UART and virtio-blk host hooks are macros. Define them before includ
 #define RVE_DEV_VIRTIO_BLK_WRITE(sector, buffer, count) board_disk_write(sector, buffer, count)
 #define RVE_DEV_VIRTIO_BLK_FLUSH()                      board_disk_flush()
 #define RVE_DEV_VIRTIO_CONSOLE_TX(buffer, length)       board_console_write(buffer, length)
+#define RVE_DEV_VIRTIO_NET_TX(buffer, length)           board_net_write(buffer, length)
 
 #include <RiscvEmulatorDevices.h>
 ```
@@ -74,6 +77,7 @@ Each device can be disabled by defining its switch to `0` before including the u
 | `RVE_DEV_PLIC`           | `1`     | PLIC                   |
 | `RVE_DEV_VIRTIO_BLK`     | `1`     | virtio-blk             |
 | `RVE_DEV_VIRTIO_CONSOLE` | `1`     | virtio-console         |
+| `RVE_DEV_VIRTIO_NET`     | `1`     | virtio-net             |
 
 The CLINT is a plain instance. Initialize it with `clint_init` and let the board supply the host clock and bridge the pending bits into `mip`:
 
@@ -137,6 +141,22 @@ static inline void RiscvDevicesConsoleReceive(uint8_t byte) {
 The board defines `RVE_DEV_VIRTIO_CONSOLE_TX(buffer, length)` to write console output to the host. The hook receives a pointer into guest RAM and must not modify the buffer.
 
 See [docs/virtio_console.md](docs/virtio_console.md) for the shared transport, both queues and the RX FIFO.
+
+The virtio-net is a plain instance. Initialize it with `virtio_net_init`, pass the MAC address, push host frames into the receiveq and bridge the interrupt line:
+
+```c
+static virtio_net_t net;
+
+// Call from board_init().
+virtio_net_init(&net, 0x10003000, 0x1000, guest_memory, 0x80000000, guest_size, mac);
+
+// Call for each frame read from the TAP file descriptor.
+virtio_net_rx_push(&net, frame, length);
+```
+
+The board defines `RVE_DEV_VIRTIO_NET_TX(buffer, length)` to write a frame to the TAP file descriptor. The hook receives a pointer to a device buffer, not guest RAM.
+
+See [docs/virtio_net.md](docs/virtio_net.md) for the features, the config space, both queues and the TAP setup.
 
 # Documentation
 
