@@ -25,7 +25,7 @@ SPDX-License-Identifier: Apache-2.0
 
 // virtio-net feature bits.
 #define VIRTIO_NET_F_MAC    (1u << 5)
-#define VIRTIO_NET_F_STATUS (1u << 16)
+#define VIRTIO_NET_F_STATUS (UINT32_C(1) << 16)
 
 // virtio-net link status values.
 #define VIRTIO_NET_S_LINK_UP 1

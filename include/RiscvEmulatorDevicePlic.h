@@ -69,7 +69,7 @@ static inline uint32_t plic_highest_pending(const plic_t *plic, uint32_t context
     uint32_t best_priority = 0;
 
     for (uint32_t source = 1; source < PLIC_SOURCE_COUNT; source++) {
-        uint32_t bit = 1u << source;
+        uint32_t bit = UINT32_C(1) << source;
 
         if ((plic->pending & plic->enable[context] & bit) == 0) {
             continue;
@@ -104,9 +104,9 @@ static inline void plic_set_pending(plic_t *plic, uint8_t source, bool pending) 
     }
 
     if (pending) {
-        plic->pending |= 1u << source;
+        plic->pending |= UINT32_C(1) << source;
     } else {
-        plic->pending &= ~(1u << source);
+        plic->pending &= ~(UINT32_C(1) << source);
     }
 }
 
@@ -147,7 +147,7 @@ static inline bool plic_read(plic_t *plic, uint32_t address, void *destination, 
             } else if (reg == PLIC_CLAIM_OFFSET) {
                 value = plic_highest_pending(plic, context);
                 if (value != 0) {
-                    plic->pending &= ~(1u << value);
+                    plic->pending &= ~(UINT32_C(1) << value);
                 }
             }
         }
@@ -201,7 +201,7 @@ static inline bool plic_write(plic_t *plic, uint32_t address, const void *source
                 plic->threshold[context] = value;
             } else if (reg == PLIC_CLAIM_OFFSET) {
                 if (value != 0 && value < PLIC_SOURCE_COUNT) {
-                    plic->pending &= ~(1u << value);
+                    plic->pending &= ~(UINT32_C(1) << value);
                 }
             }
         }
