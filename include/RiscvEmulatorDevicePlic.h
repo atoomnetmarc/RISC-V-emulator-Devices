@@ -21,8 +21,9 @@ SPDX-License-Identifier: Apache-2.0
 // Number of interrupt sources, including the reserved source 0.
 #define PLIC_SOURCE_COUNT 32
 
-// Number of contexts. The native board has one M-mode hart.
-#define PLIC_CONTEXT_COUNT 1
+// Number of contexts. The native board has one hart with an M-mode and an
+// S-mode context.
+#define PLIC_CONTEXT_COUNT 2
 
 // Register offsets from the PLIC base.
 #define PLIC_PRIORITY_OFFSET  0x000000
@@ -89,10 +90,11 @@ static inline uint32_t plic_highest_pending(const plic_t *plic, uint32_t context
 }
 
 /**
- * Returns true when an enabled pending source has a priority above the threshold.
+ * Returns true when an enabled pending source has a priority above the
+ * threshold for the given context.
  */
-static inline bool plic_irq_pending(const plic_t *plic) {
-    return plic_highest_pending(plic, 0) != 0;
+static inline bool plic_irq_pending(const plic_t *plic, uint32_t context) {
+    return plic_highest_pending(plic, context) != 0;
 }
 
 /**

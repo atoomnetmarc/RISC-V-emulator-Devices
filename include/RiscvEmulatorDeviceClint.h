@@ -31,6 +31,7 @@ typedef struct {
     uint32_t size;
     uint64_t mtime;
     uint64_t mtimecmp;
+    uint64_t last_us;
     uint32_t msip;
     uint32_t mtime_high_latched;
     bool mtime_high_latch_valid;
@@ -116,7 +117,8 @@ static inline bool clint_read(clint_t *clint, uint32_t address, void *destinatio
 }
 
 /**
- * Writes a CLINT register. Writes to mtime are transient because clint_tick overwrites them.
+ * Writes a CLINT register. A write to mtime sets the counter; clint_tick
+ * advances it from that value.
  */
 static inline bool clint_write(clint_t *clint, uint32_t address, const void *source, uint8_t length) {
     if (!clint_contains(clint, address)) {
@@ -176,10 +178,14 @@ static inline bool clint_write(clint_t *clint, uint32_t address, const void *sou
 }
 
 /**
- * Sets mtime from the host clock in microseconds.
+ * Advances mtime by the host-clock delta in microseconds.
+ *
+ * The delta keeps a software write to mtime visible: the next tick adds the
+ * elapsed host time instead of replacing the written value.
  */
 static inline void clint_tick(clint_t *clint, uint64_t now_us) {
-    clint->mtime = now_us;
+    clint->mtime += now_us - clint->last_us;
+    clint->last_us = now_us;
 }
 
 /**

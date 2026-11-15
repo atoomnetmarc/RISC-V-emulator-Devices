@@ -16,7 +16,7 @@ The offsets are relative to the CLINT base. The board chooses the base and size.
 
 `mtime` follows the host clock in microseconds. The board reads `clock_gettime(CLOCK_MONOTONIC)` and computes `(uint64_t)tv_sec * 1000000 + (uint32_t)tv_nsec / 1000`. The 32-bit division of `tv_nsec` avoids a 64-bit division.
 
-`clint_tick(clint_t *clint, uint64_t now_us)` assigns `mtime = now_us` directly. `CLOCK_MONOTONIC` is non-decreasing, so no clamp is needed.
+`clint_tick(clint_t *clint, uint64_t now_us)` adds the host-clock delta since the previous tick to `mtime`. The delta keeps a software write to `mtime` visible: the next tick advances the written value instead of replacing it. `CLOCK_MONOTONIC` is non-decreasing, so no clamp is needed.
 
 ## Storage and register access
 
@@ -43,7 +43,7 @@ The board defines `RVE_TIME_SOURCE(state)` to return the CLINT `mtime`, so the `
 | `clint_init`             | Initializes the instance and its base and size.        |
 | `clint_read`             | Reads a register and returns false outside the range.  |
 | `clint_write`            | Writes a register and returns false outside the range. |
-| `clint_tick`             | Sets `mtime` from the host clock in microseconds.      |
+| `clint_tick`             | Advances `mtime` by the host-clock delta.              |
 | `clint_timer_pending`    | Returns true when `mtime >= mtimecmp`.                 |
 | `clint_software_pending` | Returns true when `msip != 0`.                         |
 

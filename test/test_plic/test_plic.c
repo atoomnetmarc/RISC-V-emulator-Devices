@@ -67,13 +67,13 @@ void test_irq_pending(void) {
     write32(PLIC_PRIORITY_OFFSET + 1 * sizeof(uint32_t), 1);
     write32(PLIC_ENABLE_OFFSET, 0x2);
     write32(PLIC_CONTEXT_OFFSET + PLIC_THRESHOLD_OFFSET, 0);
-    TEST_ASSERT_FALSE(plic_irq_pending(&plic));
+    TEST_ASSERT_FALSE(plic_irq_pending(&plic, 0));
 
     plic_set_pending(&plic, 1, true);
-    TEST_ASSERT_TRUE(plic_irq_pending(&plic));
+    TEST_ASSERT_TRUE(plic_irq_pending(&plic, 0));
 
     write32(PLIC_CONTEXT_OFFSET + PLIC_THRESHOLD_OFFSET, 1);
-    TEST_ASSERT_FALSE(plic_irq_pending(&plic));
+    TEST_ASSERT_FALSE(plic_irq_pending(&plic, 0));
 }
 
 // A claim returns the highest-priority source and clears its pending bit.
