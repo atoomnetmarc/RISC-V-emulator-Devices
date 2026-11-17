@@ -216,21 +216,21 @@ The `0x02` phandle is the existing CPU-INTC node. The `0x0b` value is the machin
 
 ## Buildroot
 
-The root filesystem comes from the Buildroot `rootfs.tar`. The disk image is assembled on the host: a GPT partition table with one ext4 partition, populated from the rootfs tarball.
+The root filesystem comes from the Buildroot `rootfs.ext4`. The disk image is assembled on the host: a GPT partition table with a 32M ext4 boot partition at 1M and the 16M rootfs at 33M. The boot partition holds the Linux `Image` and the DTB.
 
-The kernel command line is `root=/dev/vda1 rw rootfstype=ext4 rdinit=/nonexistent`. The `rdinit=/nonexistent` value makes the kernel skip the initramfs `/init` and mount the disk as the root.
+The kernel command line is `root=PARTUUID=<fixed> rw rootfstype=ext4`. The kernel mounts the rootfs partition by its GPT partition UUID.
 
 ## Test plan
 
 - Unity unit tests for the PLIC: priority, pending, enable, threshold, claim and complete.
 - Unity unit tests for virtio-blk: magic, version, device ID, feature negotiation, queue setup, a read request, a write request and the interrupt status.
-- Boot the initramfs image with a blank data disk, create an ext4 filesystem on `/dev/vda`, mount it, write a file and verify the host file.
-- Boot with `root=/dev/vda1`, write a file in `/`, reboot and verify that the file survives.
+- Boot the disk image, write a file in `/`, reboot and verify that the file survives.
+- Verify that U-Boot loads the `Image` and the DTB from the boot partition.
 
 ## Acceptance criteria
 
-- Linux boots from the initramfs, `/dev/vda` exists, `dd` writes to the disk, the host file changes and a remount shows the data.
-- Linux boots from `/dev/vda1`, the rootfs is writable, a file created in `/` survives a reboot and the host file contains the change.
+- Linux boots from the disk, `/dev/vda` exists, `dd` writes to the disk, the host file changes and a remount shows the data.
+- The rootfs is writable, a file created in `/` survives a reboot and the host file contains the change.
 
 ## Risks and open points
 
