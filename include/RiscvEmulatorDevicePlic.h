@@ -29,6 +29,7 @@ SPDX-License-Identifier: Apache-2.0
 #define PLIC_PRIORITY_OFFSET  0x000000
 #define PLIC_PENDING_OFFSET   0x001000
 #define PLIC_ENABLE_OFFSET    0x002000
+#define PLIC_ENABLE_STRIDE    0x000080
 #define PLIC_CONTEXT_OFFSET   0x200000
 #define PLIC_CONTEXT_STRIDE   0x001000
 #define PLIC_THRESHOLD_OFFSET 0x000000
@@ -134,9 +135,10 @@ static inline bool plic_read(plic_t *plic, uint32_t address, void *destination, 
             value = plic->pending;
         }
     } else if (offset < PLIC_CONTEXT_OFFSET) {
-        uint32_t word = (offset - PLIC_ENABLE_OFFSET) / sizeof(uint32_t);
-        if (word < PLIC_CONTEXT_COUNT) {
-            value = plic->enable[word];
+        uint32_t context = (offset - PLIC_ENABLE_OFFSET) / PLIC_ENABLE_STRIDE;
+        uint32_t word = ((offset - PLIC_ENABLE_OFFSET) % PLIC_ENABLE_STRIDE) / sizeof(uint32_t);
+        if (context < PLIC_CONTEXT_COUNT && word == 0) {
+            value = plic->enable[context];
         }
     } else {
         uint32_t context_offset = offset - PLIC_CONTEXT_OFFSET;
@@ -189,9 +191,10 @@ static inline bool plic_write(plic_t *plic, uint32_t address, const void *source
     } else if (offset < PLIC_ENABLE_OFFSET) {
         // Pending bits are set by the device, not by software.
     } else if (offset < PLIC_CONTEXT_OFFSET) {
-        uint32_t word = (offset - PLIC_ENABLE_OFFSET) / sizeof(uint32_t);
-        if (word < PLIC_CONTEXT_COUNT) {
-            plic->enable[word] = value;
+        uint32_t context = (offset - PLIC_ENABLE_OFFSET) / PLIC_ENABLE_STRIDE;
+        uint32_t word = ((offset - PLIC_ENABLE_OFFSET) % PLIC_ENABLE_STRIDE) / sizeof(uint32_t);
+        if (context < PLIC_CONTEXT_COUNT && word == 0) {
+            plic->enable[context] = value;
         }
     } else {
         uint32_t context_offset = offset - PLIC_CONTEXT_OFFSET;

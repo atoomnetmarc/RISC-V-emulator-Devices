@@ -29,7 +29,7 @@ This document records the design for a block device in the RISC-V emulator famil
 
 ## Architecture
 
-The guest sees a virtio-mmio transport at a fixed MMIO range and a virtio-blk device behind it. The transport uses the legacy version 1 register layout. A SiFive PLIC delivers the virtio interrupt to the hart as `mip.MEIP`. The board owns the host file and the guest memory.
+The guest sees a virtio-mmio transport at a fixed MMIO range and a virtio-blk device behind it. The transport uses the legacy version 1 register layout. A SiFive PLIC delivers the virtio interrupt to the hart as `mip.MEIP` in M-mode and `mip.SEIP` in S-mode. The board owns the host file and the guest memory.
 
 The transport is shared with the virtio-console model; see [virtio_console.md](virtio_console.md).
 
@@ -38,9 +38,9 @@ Linux guest
   virtio-blk driver
     virtio-mmio legacy v1 (MMIO)
       PLIC source 1
-        PLIC context 0
-          mip.MEIP
-            hart
+        PLIC context 0 -> mip.MEIP
+        PLIC context 1 -> mip.SEIP
+          hart
 ```
 
 ## Memory map
@@ -77,10 +77,12 @@ The device implements the version 1 register layout. The feature selector regist
 | `0x050` | `QueueNotify`      | W      | Low 16 bits are the queue index; the high 16 bits are ignored. |
 | `0x060` | `InterruptStatus`  | R      | Bit 0 is the used-ring interrupt.   |
 | `0x064` | `InterruptACK`     | W      | Clears the written bits.            |
-| `0x070` | `Status`           | RW     | Device status.                      |
+| `0x070` | `Status`           | RW     | Device status; a write of zero resets the transport. |
 | `0x100` | Config space       | R      | `virtio_blk_config`.                |
 
 The descriptor table starts at `QueuePFN << 12`. The available ring follows the descriptor table. The used ring starts at the next `QueueAlign` boundary following the available ring.
+
+A write of zero to `Status` resets the transport. The feature selectors, the guest features, the page size, the queue selector, the queues and the interrupt status return to zero. The device configuration stays unchanged. The reset lets a second driver, such as Linux after U-Boot, start from a clean transport.
 
 ## virtio-blk
 
@@ -99,7 +101,7 @@ The status byte is `0` for success, `1` for an I/O error and `2` for an unsuppor
 
 ## PLIC
 
-The PLIC model has one context for the M-mode hart. The kernel's PLIC driver uses context 0 for that hart.
+The PLIC model has an M-mode context (0) and an S-mode context (1). OpenSBI uses context 0; the Linux kernel's PLIC driver uses context 1.
 
 | Range                                         | Register       | Notes                                                      |
 | :-------------------------------------------- | :------------- | :--------------------------------------------------------- |
@@ -109,7 +111,7 @@ The PLIC model has one context for the M-mode hart. The kernel's PLIC driver use
 | `0x200000 + 0x1000 * context`                 | Threshold      | Priority threshold.                                        |
 | `0x200004 + 0x1000 * context`                 | Claim/Complete | Claim returns the source; complete clears the pending bit. |
 
-The virtio-mmio interrupt line connects to source 1. The board sets the pending bit while the virtio device reports an interrupt. `plic_irq_pending` returns true when an enabled pending source has a priority above the threshold. The board bridges that result into `mip.MEIP` (bit 11) in `RiscvDevicesTick`.
+The virtio-mmio interrupt line connects to source 1. The board sets the pending bit while the virtio device reports an interrupt. `plic_irq_pending` returns true when an enabled pending source has a priority above the threshold. The board bridges context 0 into `mip.MEIP` (bit 11) and context 1 into `mip.SEIP` (bit 9) in `RiscvDevicesTick`.
 
 ## Host hooks
 
@@ -150,10 +152,10 @@ bool virtio_blk_irq_pending(const virtio_blk_t *dev);
 typedef struct {
     uint32_t base;
     uint32_t size;
+    uint32_t priority[PLIC_SOURCE_COUNT];
     uint32_t pending;
-    uint32_t enable;
-    uint32_t threshold;
-    /* Claim state. */
+    uint32_t enable[PLIC_CONTEXT_COUNT];
+    uint32_t threshold[PLIC_CONTEXT_COUNT];
 } plic_t;
 
 void plic_init(plic_t *plic, uint32_t base, uint32_t size);
@@ -198,7 +200,7 @@ plic@c000000 {
     #interrupt-cells = <0x01>;
     interrupt-controller;
     riscv,ndev = <0x1f>;
-    interrupts-extended = <0x02 0x0b>;
+    interrupts-extended = <0x02 0x0b 0x02 0x09>;
     phandle = <0x05>;
 };
 
@@ -210,7 +212,7 @@ virtio_mmio@10001000 {
 };
 ```
 
-The `0x02` phandle is the existing CPU-INTC node. The `0x0b` value is the machine external interrupt.
+The `0x02` phandle is the existing CPU-INTC node. The `0x0b` value is the machine external interrupt; the `0x09` value is the supervisor external interrupt.
 
 ## Buildroot
 

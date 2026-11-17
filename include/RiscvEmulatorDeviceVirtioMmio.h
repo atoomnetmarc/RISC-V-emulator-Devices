@@ -112,6 +112,21 @@ static inline void virtio_mmio_init(virtio_mmio_t *dev, uint32_t base, uint32_t 
 }
 
 /**
+ * Resets the transport to its initial state. The device configuration is
+ * static and stays untouched.
+ */
+static inline void virtio_mmio_reset(virtio_mmio_t *dev) {
+    dev->host_features_sel = 0;
+    dev->guest_features = 0;
+    dev->guest_features_sel = 0;
+    dev->guest_page_size = 0;
+    dev->queue_sel = 0;
+    memset(dev->queues, 0, sizeof(dev->queues));
+    dev->interrupt_status = 0;
+    dev->status = 0;
+}
+
+/**
  * Returns true when the address falls inside the virtio-mmio range.
  */
 static inline bool virtio_mmio_contains(const virtio_mmio_t *dev, uint32_t address) {
@@ -376,7 +391,12 @@ static inline bool virtio_mmio_write(virtio_mmio_t *dev, uint32_t address, const
             dev->interrupt_status &= ~value;
             break;
         case VIRTIO_MMIO_STATUS_OFFSET:
-            dev->status = value;
+            // Writing zero resets the device, including the queues.
+            if (value == 0) {
+                virtio_mmio_reset(dev);
+            } else {
+                dev->status = value;
+            }
             break;
         default:
             break;
