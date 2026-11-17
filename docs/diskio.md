@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document records the design for a block device in the RISC-V emulator family. The target is the `rv32i-linux` image on the native board. The design adds a writable disk to the Linux guest and keeps the device models in this library.
+This document records the design for a block device in the RISC-V emulator family. The target is the `RISC-V-emulator-Linux` image on the native board. The design adds a writable disk to the Linux guest and keeps the device models in this library.
 
 ## Goals
 
