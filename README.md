@@ -1,6 +1,6 @@
 # Status
 
-The CLINT, 16550 UART, SYSCON, PLIC, virtio-blk, virtio-console, virtio-net and virtio-rng models are implemented. The host unit tests exercise each model.
+The CLINT, 16550 UART, SYSCON, PLIC, virtio-blk, virtio-console, virtio-net, virtio-rng and goldfish RTC models are implemented. The host unit tests exercise each model.
 
 # Description
 
@@ -20,6 +20,7 @@ The library is header-only. All device functions are `static inline`; there are 
 | virtio-console         | Console over virtio-mmio              | `virtio,mmio`                            |
 | virtio-net             | Network device over virtio-mmio       | `virtio,mmio`                            |
 | virtio-rng             | Random numbers over virtio-mmio       | `virtio,mmio`                            |
+| goldfish RTC           | Wall-clock time over MMIO             | `google,goldfish-rtc`                    |
 
 # Memory map
 
@@ -35,6 +36,7 @@ The default memory map follows the QEMU `virt` machine:
 | virtio-console | `0x10002000` |   `0x1000` |
 | virtio-net     | `0x10003000` |   `0x1000` |
 | virtio-rng     | `0x10004000` |   `0x1000` |
+| goldfish RTC   | `0x10005000` |   `0x1000` |
 
 The device models are address-independent; the board chooses the base addresses.
 
@@ -66,6 +68,8 @@ The SYSCON, UART and virtio-blk host hooks are macros. Define them before includ
 #define RVE_DEV_VIRTIO_CONSOLE_TX(buffer, length)       board_console_write(buffer, length)
 #define RVE_DEV_VIRTIO_NET_TX(buffer, length)           board_net_write(buffer, length)
 #define RVE_DEV_VIRTIO_RNG_FILL(buffer, length)         board_rng_fill(buffer, length)
+#define RVE_DEV_GOLDFISH_RTC_REALTIME_NS()              board_rtc_realtime_ns()
+#define RVE_DEV_GOLDFISH_RTC_MONOTONIC_NS()             board_rtc_monotonic_ns()
 
 #include <RiscvEmulatorDevices.h>
 ```
@@ -82,6 +86,7 @@ Each device can be disabled by defining its switch to `0` before including the u
 | `RVE_DEV_VIRTIO_CONSOLE` | `1`     | virtio-console         |
 | `RVE_DEV_VIRTIO_NET`     | `1`     | virtio-net             |
 | `RVE_DEV_VIRTIO_RNG`     | `1`     | virtio-rng             |
+| `RVE_DEV_GOLDFISH_RTC`   | `1`     | goldfish RTC           |
 
 The CLINT is a plain instance. Initialize it with `clint_init` and let the board supply the host clock and bridge the pending bits into `mip`:
 
@@ -174,6 +179,19 @@ virtio_rng_init(&rng, 0x10004000, 0x1000, guest_memory, 0x80000000, guest_size);
 The board defines `RVE_DEV_VIRTIO_RNG_FILL(buffer, length)` to fill a device buffer with host entropy. The hook receives a pointer to a device buffer, not guest RAM. The default hook fills the buffer with zeros.
 
 See [docs/virtio_rng.md](docs/virtio_rng.md) for the request queue, the host hook and the guest configuration.
+
+The goldfish RTC is a plain instance. Initialize it with `goldfish_rtc_init` and define both host clock hooks:
+
+```c
+static goldfish_rtc_t rtc;
+
+// Call from board_init().
+goldfish_rtc_init(&rtc, 0x10005000, 0x1000);
+```
+
+The board defines `RVE_DEV_GOLDFISH_RTC_REALTIME_NS` and `RVE_DEV_GOLDFISH_RTC_MONOTONIC_NS` to return host nanoseconds. The device samples the realtime clock at init and advances from the monotonic clock. Guest writes change the emulated base only. The default hooks return zero.
+
+See [docs/goldfish_rtc.md](docs/goldfish_rtc.md) for the register map, the time model and the guest configuration.
 
 # Documentation
 

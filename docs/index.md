@@ -17,3 +17,4 @@ The general coding rules are shared with the ISA core and live in [RISC-V-emulat
 - [virtio_console.md](virtio_console.md) - Virtio console design: shared virtio-mmio transport, both queues, RX FIFO and `hvc0`.
 - [virtio_net.md](virtio_net.md) - Virtio network design: shared virtio-mmio transport, receiveq and transmitq, TAP host hook and a static guest address.
 - [virtio_rng.md](virtio_rng.md) - Virtio random number generator design: shared virtio-mmio transport, requestq, host entropy hook and guest entropy use.
+- [goldfish_rtc.md](goldfish_rtc.md) - Goldfish RTC design: MMIO registers, host clock hooks, free-running time and guest integration.
