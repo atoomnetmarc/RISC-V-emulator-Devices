@@ -139,7 +139,7 @@ static inline void virtio_net_tx_chain(virtio_net_t *dev, uint32_t desc_table, u
  * Processes all available transmit requests in the queue.
  */
 static inline void virtio_net_process_tx(virtio_net_t *dev) {
-    uint32_t desc_table;
+    uint32_t desc_table = 0;
     uint32_t avail;
     uint32_t used;
 
@@ -176,7 +176,7 @@ static inline void virtio_net_process_tx(virtio_net_t *dev) {
  * Delivers one frame to the next receiveq buffer.
  */
 static inline bool virtio_net_rx_push(virtio_net_t *dev, const uint8_t *packet, uint32_t length) {
-    uint32_t desc_table;
+    uint32_t desc_table = 0;
     uint32_t avail;
     uint32_t used;
 

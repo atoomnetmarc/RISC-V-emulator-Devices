@@ -33,6 +33,8 @@ The guest sees a virtio-mmio transport at a fixed MMIO range and a virtio-blk de
 
 The transport is shared with the virtio-console model; see [virtio_console.md](virtio_console.md).
 
+Guest RAM access goes through `RVE_DEV_GUEST_READ` and `RVE_DEV_GUEST_WRITE`. The defaults copy with `memcpy` from the `guest_memory` pointer passed to the init functions. A board whose guest RAM is remote overrides both macros; the AVR Linux env uses VPI transfers to the simavr host. The bounds checks stay in the transport, so an override only performs the copy.
+
 ```
 Linux guest
   virtio-blk driver

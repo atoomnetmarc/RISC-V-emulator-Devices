@@ -47,6 +47,18 @@ SPDX-License-Identifier: Apache-2.0
 // Maximum queue size.
 #define VIRTIO_MMIO_QUEUE_NUM_MAX 128
 
+// Guest RAM access hooks. A board with directly addressable RAM keeps the
+// default memcpy; a board with remote RAM overrides these macros.
+#ifndef RVE_DEV_GUEST_READ
+#define RVE_DEV_GUEST_READ(dev, address, destination, length) \
+    memcpy((destination), &(dev)->memory[(address) - (dev)->memory_base], (length))
+#endif
+
+#ifndef RVE_DEV_GUEST_WRITE
+#define RVE_DEV_GUEST_WRITE(dev, address, source, length) \
+    memcpy(&(dev)->memory[(address) - (dev)->memory_base], (source), (length))
+#endif
+
 /**
  * One virtio descriptor.
  */
@@ -145,7 +157,7 @@ static inline bool virtio_mmio_guest_read(const virtio_mmio_t *dev, uint32_t add
         return false;
     }
 
-    memcpy(destination, &dev->memory[address - dev->memory_base], length);
+    RVE_DEV_GUEST_READ(dev, address, destination, length);
     return true;
 }
 
@@ -161,7 +173,7 @@ static inline bool virtio_mmio_guest_write(const virtio_mmio_t *dev, uint32_t ad
         return false;
     }
 
-    memcpy(&dev->memory[address - dev->memory_base], source, length);
+    RVE_DEV_GUEST_WRITE(dev, address, source, length);
     return true;
 }
 
@@ -212,7 +224,7 @@ static inline bool virtio_mmio_queue_layout(const virtio_mmio_t *dev, uint32_t q
  * Adds one entry to the used ring and sets the used-ring interrupt.
  */
 static inline bool virtio_mmio_add_used(virtio_mmio_t *dev, uint32_t queue_index, uint16_t head, uint32_t length) {
-    uint32_t desc_table;
+    uint32_t desc_table = 0;
     uint32_t avail;
     uint32_t used;
 

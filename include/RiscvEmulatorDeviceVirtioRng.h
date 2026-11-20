@@ -104,7 +104,7 @@ static inline uint32_t virtio_rng_process_chain(virtio_rng_t *dev, uint32_t desc
  * Processes all available requests in the queue.
  */
 static inline void virtio_rng_process(virtio_rng_t *dev) {
-    uint32_t desc_table;
+    uint32_t desc_table = 0;
     uint32_t avail;
     uint32_t used;
 

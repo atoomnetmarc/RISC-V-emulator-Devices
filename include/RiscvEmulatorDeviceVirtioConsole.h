@@ -76,7 +76,7 @@ static inline void virtio_console_drain(virtio_console_t *dev) {
         return;
     }
 
-    uint32_t desc_table;
+    uint32_t desc_table = 0;
     uint32_t avail;
     uint32_t used;
 
@@ -145,7 +145,7 @@ static inline void virtio_console_drain(virtio_console_t *dev) {
  * Processes all available output buffers and calls the host hook.
  */
 static inline void virtio_console_process_tx(virtio_console_t *dev) {
-    uint32_t desc_table;
+    uint32_t desc_table = 0;
     uint32_t avail;
     uint32_t used;
 
