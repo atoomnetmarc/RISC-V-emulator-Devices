@@ -36,6 +36,13 @@ SPDX-License-Identifier: Apache-2.0
 #error "VIRTIO_CONSOLE_RX_FIFO_SIZE must fit in uint8_t"
 #endif
 
+// Chunk size used when copying TX descriptors out of guest RAM. Keeping this
+// small bounds stack usage on embedded boards; the host hook is called once
+// per chunk, which is safe because console output is a byte stream.
+#ifndef VIRTIO_CONSOLE_TX_CHUNK_SIZE
+#define VIRTIO_CONSOLE_TX_CHUNK_SIZE 64
+#endif
+
 // Host hook. A board defines this before including this header.
 #ifndef RVE_DEV_VIRTIO_CONSOLE_TX
 #define RVE_DEV_VIRTIO_CONSOLE_TX(buffer, length) ((void)(buffer), (void)(length))
@@ -182,8 +189,22 @@ static inline void virtio_console_process_tx(virtio_console_t *dev) {
             has_next = (desc.flags & VIRTQ_DESC_F_NEXT) != 0;
 
             if ((desc.flags & VIRTQ_DESC_F_WRITE) == 0 && desc.length > 0 && desc.address >= dev->mmio.memory_base && desc.length <= dev->mmio.memory_size && desc.address - dev->mmio.memory_base <= dev->mmio.memory_size - desc.length) {
-                uint32_t offset = (uint32_t)(desc.address - dev->mmio.memory_base);
-                RVE_DEV_VIRTIO_CONSOLE_TX(&dev->mmio.memory[offset], desc.length);
+                // Read through the guest-memory hook instead of indexing
+                // dev->mmio.memory directly: on remote-RAM boards (AVR/VPI)
+                // that pointer is NULL and cannot be dereferenced.
+                uint8_t buffer[VIRTIO_CONSOLE_TX_CHUNK_SIZE];
+                uint32_t address = (uint32_t)desc.address;
+                uint32_t remaining = desc.length;
+
+                while (remaining > 0) {
+                    uint32_t chunk = remaining < sizeof(buffer) ? remaining : (uint32_t)sizeof(buffer);
+                    if (!virtio_mmio_guest_read(&dev->mmio, address, buffer, chunk)) {
+                        break;
+                    }
+                    RVE_DEV_VIRTIO_CONSOLE_TX(buffer, (uint16_t)chunk);
+                    address += chunk;
+                    remaining -= chunk;
+                }
                 total += desc.length;
             }
 
